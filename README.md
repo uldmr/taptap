@@ -15,6 +15,11 @@
 
 ---
 
+> **This fork also carries `taptap-extension/`** — a separate MV3 extension for the other
+> direction: you tap elements on a page, write what should change, and it produces one
+> prompt for an agent. It does not change `prototype/` or the bopbop relay. See
+> [`taptap-extension/README.md`](taptap-extension/README.md).
+
 I read through my own agent sessions. Browser agents took 1,849 screenshots and read the page as text 7 times. Most of the tokens went into looking at pages, not into doing the work.
 
 bopbop is an MCP server that gives any agent (Codex, Claude Code, or any other MCP client) your real Chrome, with your sign-ins: the kind of access Claude in Chrome gives Claude. In our benchmark it does that job better than Claude in Chrome: 72% fewer tokens, 3.5× faster, and it passed all 32 runs where Claude in Chrome passed 28.
