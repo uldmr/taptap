@@ -9,10 +9,10 @@ import { fileURLToPath } from 'node:url';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const out = join(root, 'dist');
 
-const manifest = JSON.parse(readFileSync(join(root, 'manifest.json'), 'utf8'));
+const manifest = JSON.parse(readFileSync(join(root, 'manifest.src.json'), 'utf8'));
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 if (manifest.version !== pkg.version) {
-  throw new Error(`manifest.json is ${manifest.version}, package.json is ${pkg.version} — bump both`);
+  throw new Error(`manifest.src.json is ${manifest.version}, package.json is ${pkg.version} — bump both`);
 }
 
 rmSync(out, { recursive: true, force: true });
@@ -23,7 +23,7 @@ const common = { bundle: true, target: 'chrome116', logLevel: 'warning', legalCo
 await build({ ...common, entryPoints: [join(root, 'src/content/main.js')], outfile: join(out, 'content.js'), format: 'iife' });
 await build({ ...common, entryPoints: [join(root, 'src/sw.js')], outfile: join(out, 'sw.js'), format: 'iife' });
 
-cpSync(join(root, 'manifest.json'), join(out, 'manifest.json'));
+cpSync(join(root, 'manifest.src.json'), join(out, 'manifest.json'));
 if (!existsSync(join(root, 'icons'))) {
   throw new Error('icons/ is missing — run `npm run icons`');
 }
@@ -34,3 +34,5 @@ for (const file of ['content.js', 'sw.js', 'manifest.json']) {
   console.log(`${file.padEnd(14)} ${kb.padStart(6)} kB`);
 }
 console.log(`built ${manifest.name} ${manifest.version} -> ${out}`);
+console.log('load it with chrome://extensions → Developer mode → Load unpacked → ' + out);
+console.log('(the folder you are in now is source: it has no manifest.json, so Chrome refuses it)');

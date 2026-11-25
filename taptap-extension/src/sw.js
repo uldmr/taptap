@@ -43,15 +43,39 @@ async function tell(tabId, on) {
   }
 }
 
+/**
+ * Put the page script into a tab that has none: a page opened before the
+ * extension was installed or reloaded never runs the declared content script,
+ * and Chrome does not go back and inject it. Injecting on the first tap is what
+ * makes the toolbar button work on that tab instead of asking for a reload.
+ */
+async function revive(tabId) {
+  try {
+    await chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] });
+    return true;
+  } catch (err) {
+    console.warn('[taptap] cannot inject the page script:', err?.message || err);
+    return false;
+  }
+}
+
+/** True when the page script is present and was told to switch modes. */
+async function reach(tabId, on) {
+  if (await tell(tabId, on)) return true;
+  if (!(await revive(tabId))) return false;
+  // The script is there now; the second call is the one that counts.
+  return tell(tabId, on);
+}
+
 async function toggle(tab) {
   if (!tab?.id || !/^https?:/.test(tab.url || '')) {
-    await flashUnavailable(tab?.id);
+    await flashUnavailable(tab?.id, 'Only http and https pages can be annotated');
     return;
   }
   const map = await readActive();
   const on = !map[tab.id];
-  if (on && !(await tell(tab.id, true))) {
-    await flashUnavailable(tab.id);
+  if (on && !(await reach(tab.id, true))) {
+    await flashUnavailable(tab.id, 'This page blocks scripts — taptap cannot run here');
     return;
   }
   await setActive(tab.id, on);
@@ -59,19 +83,28 @@ async function toggle(tab) {
 }
 
 /** A short "!" badge when the page cannot run the annotation script. */
-async function flashUnavailable(tabId) {
+async function flashUnavailable(tabId, reason = 'Taptap cannot run on this page') {
   if (!tabId) return;
+  console.warn('[taptap]', reason, 'tab', tabId);
   await chrome.action.setBadgeText({ tabId, text: '!' });
   await chrome.action.setBadgeBackgroundColor({ tabId, color: '#F87171' });
   await chrome.action.setBadgeTextColor?.({ tabId, color: '#0D0D0D' });
+  await chrome.action.setTitle({ tabId, title: reason });
   setTimeout(() => {
     chrome.action.setBadgeText({ tabId, text: '' }).catch(() => {});
+    chrome.action
+      .setTitle({ tabId, title: 'Annotate this page (Alt+A)' })
+      .catch(() => {});
   }, 2500);
 }
 
 chrome.action.onClicked.addListener((tab) => {
   toggle(tab);
 });
+
+// The toolbar handler is also reachable from the service worker's console and
+// from the end-to-end test, which cannot press a toolbar button.
+globalThis.__taptapToggle = toggle;
 
 chrome.commands.onCommand.addListener(async (command) => {
   if (command !== 'toggle-annotations') return;

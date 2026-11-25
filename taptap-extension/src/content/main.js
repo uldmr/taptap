@@ -430,6 +430,10 @@ function start() {
 
   // --- boot ----------------------------------------------------------------
 
+  // A visible trace in the page's own DevTools: proof that the engine is in the
+  // tab, which is the first thing to check when the toolbar button does nothing.
+  document.documentElement.setAttribute('data-taptap-engine', '1');
+
   loadHudPos()
     .then((pos) => {
       if (pos) hudPending = pos;

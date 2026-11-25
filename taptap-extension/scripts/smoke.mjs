@@ -443,6 +443,23 @@ await sleep(400);
 check('esc exits annotation mode', (await find('frame')) === null);
 check('cursor is restored', (await evalPage(`document.documentElement.classList.contains('__taptap_cursor')`)) === false);
 
+// 11. the real toolbar path: Extensions.triggerAction presses the button, so this
+//     goes through the service worker's toggle, badge and all — not a message we
+//     send by hand the way the checks above do.
+await cdp.send('Target.setDiscoverTargets', { discover: true, filter: [{ type: 'tab' }, { type: 'page' }] });
+await sleep(300);
+const tabTarget = (await cdp.send('Target.getTargets')).targetInfos.find((t) => t.type === 'tab');
+check('the browser exposes a tab target', !!tabTarget);
+
+if (tabTarget) {
+  const press = () => cdp.send('Extensions.triggerAction', { id: extensionId, targetId: tabTarget.targetId });
+  const pressToggled = await Promise.race([press().then(() => true), sleep(6000).then(() => false)]);
+  check('the toolbar button runs the worker', pressToggled);
+  check('the toolbar button turns the mode on', (await waitFor(() => find('frame'), 5000)) !== null);
+  await press();
+  check('the toolbar button turns the mode off', (await waitFor(async () => (await find('frame')) === null, 4000)) === true);
+}
+
 const failed = checks.filter((c) => !c.ok);
 console.log(`\n${checks.length - failed.length}/${checks.length} checks passed · extension ${extensionId} · shots in .tmp/smoke`);
 cdp.close();

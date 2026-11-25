@@ -10,7 +10,10 @@ tap element → card with its attributes → your request → HUD → Submit →
 
 ## What it does
 
-- **Annotation mode** on the current tab, from the toolbar button or `Alt+A`.
+- **Annotation mode** on the current tab, from the toolbar button or `Alt+A`. The button
+  works on tabs that were already open when the extension was installed or reloaded:
+  Chrome never injects a declared content script into those, so the worker injects it on
+  the first click.
 - A **brand frame** around the viewport, a **replaced cursor**, and a **hover box** with
   the element's name, so the mode is impossible to mistake for the page.
 - **Tap to select**: page clicks are swallowed while the mode is on, so links and
@@ -34,10 +37,30 @@ npm install          # once
 npm run build        # writes dist/
 ```
 
-Then `chrome://extensions` → *Developer mode* → *Load unpacked* → pick `dist/`.
+Then `chrome://extensions` → *Developer mode* → *Load unpacked* → pick **`taptap-extension/dist/`**.
+
+Pick `dist/`, not `taptap-extension/`. The source folder deliberately has
+`manifest.src.json` instead of `manifest.json`, so pointing Chrome at it fails with
+"Manifest file is missing" instead of loading an extension whose scripts do not exist
+yet — which looks like a button that does nothing.
 
 Google Chrome (branded) refuses `--load-extension` since 137, which is why the smoke
 test drives a Chrome for Testing build instead. Loading unpacked by hand works as usual.
+
+## Troubleshooting
+
+**The toolbar icon shows a small red `!` and nothing happens.** The page script is not
+in the tab and Chrome would not let taptap inject it. Taptap injects the script on the
+first click, so this no longer happens for a tab that was open before the extension was
+installed or reloaded — it does happen on pages Chrome protects (`chrome://`,
+the Web Store, PDFs, pages that block extensions), and the tooltip says why.
+
+**Nothing happens and the icon stays plain.** Check that the mode is on for *this* tab
+(a reload of the tab, `Alt+A`, or the toolbar button) and look for
+`data-taptap-engine="1"` on `<html>` in DevTools → Elements: that attribute is set by the
+page script and is the quickest way to tell "the script never ran" from "the script ran
+and something else is wrong". The service worker's console (`chrome://extensions` →
+*Service worker*) logs the reason it could not reach a page.
 
 ## Keys
 
@@ -92,7 +115,7 @@ selection and the viewport size.
 
 | File | Role |
 |---|---|
-| `src/sw.js` | toolbar action, keyboard command, the per-tab "mode is on" flag, probe injection |
+| `src/sw.js` | toolbar action, keyboard command, the per-tab "mode is on" flag, injection of the page script and of the probe |
 | `src/content/main.js` | engine: activation, hover, selection, cards, markers, HUD, prompt, SPA tracking |
 | `src/content/overlay.js` | the whole UI inside a closed shadow root; `place()` is the panel placement rule |
 | `src/content/anchor.js` | attribute digest and the ordered anchor candidates |
@@ -117,9 +140,10 @@ Three decisions worth knowing:
 ## Development
 
 ```bash
-npm test          # unit tests: prompt building, panel placement, class names, page keys
+npm test          # 17 unit tests: prompt building, panel placement, class names, page
+                  # keys, and the worker's tab decisions against a chrome stand-in
 npm run build     # dist/
-npm run smoke     # real Chrome + real extension, 39 end-to-end checks, screenshots in .tmp/smoke
+npm run smoke     # real Chrome + real extension, 43 end-to-end checks, screenshots in .tmp/smoke
 npm run icons     # redraw icons/ from scripts/make-icons.mjs
 ```
 
@@ -127,7 +151,9 @@ npm run icons     # redraw icons/ from scripts/make-icons.mjs
 `CHROME_PATH`, `/Applications`, and Playwright's browser cache. It covers: dormant
 page, activation, cursor, hover label, card attributes, saving two annotations (one
 anchored by `id`, one by `data-testid`), persistence, re-anchoring after a reload,
-the prompt content, component names from a React fiber, `Esc` back to a normal page.
+the prompt content, component names from a React fiber, `Esc` back to a normal page,
+and the toolbar button itself through `Extensions.triggerAction` — the same path a
+click takes, so the badge and the worker's toggle are exercised too.
 
 ## Not here yet
 
