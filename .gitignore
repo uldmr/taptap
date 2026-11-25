@@ -12,3 +12,6 @@ node_modules
 local/
 bench/real/results/
 bench/private
+
+# build and test scratch
+.tmp/
